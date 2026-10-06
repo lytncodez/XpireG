@@ -107,3 +107,45 @@ async def test_status_endpoint_never_exposes_credentials(client, admin):
     body = resp.json()
     assert body["provider"] == "mock" and body["is_mock"] is True
     assert "key" not in json.dumps(body).lower()
+
+
+async def test_insights_use_strict_json_schema():
+    seen = {}
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {"content": '{"insights": [], "insufficient_evidence": true, "notes": null}'}}]})
+    p = OpenAIProvider("sk-test", "m", base_url="https://x.test/v1", timeout=5, max_tokens=2000,
+                       temperature=0, transport=httpx.MockTransport(handler))
+    await p.generate_response(CTX, "P", system="S", task=AITask.INSIGHTS)
+    fmt = seen["response_format"]
+    assert fmt["type"] == "json_schema"
+    assert fmt["json_schema"]["strict"] is True
+    schema = fmt["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
+    assert set(schema["required"]) == set(schema["properties"])
+
+
+@pytest.mark.parametrize("reason", ["length", "content_filter"])
+async def test_incomplete_openai_response_is_rejected(reason):
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, json={"choices": [{"finish_reason": reason, "message": {"content": '{"insights": []}'}}]}))
+    p = OpenAIProvider("sk-test", "m", base_url="https://x.test/v1", timeout=5, max_tokens=10, temperature=0, transport=transport)
+    with pytest.raises(AIProviderError, match=reason):
+        await p.generate_response(CTX, "P", system="S", task=AITask.INSIGHTS)
+
+
+@pytest.mark.parametrize("always_fail", [False, True])
+async def test_openai_timeout_retry_is_bounded(always_fail):
+    calls = 0
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        if calls == 1 or always_fail:
+            raise httpx.ReadTimeout("timeout", request=request)
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {"content": '{"answer": "ok"}'}}]})
+    p = OpenAIProvider("sk-test", "m", base_url="https://x.test/v1", timeout=5, max_tokens=10, temperature=0, transport=httpx.MockTransport(handler))
+    if always_fail:
+        with pytest.raises(AIProviderError, match="timed out"):
+            await p.generate_response(CTX, "P", system="S", task=AITask.CHAT)
+    else:
+        assert (await p.generate_response(CTX, "P", system="S", task=AITask.CHAT)).text == '{"answer": "ok"}'
+    assert calls == 2

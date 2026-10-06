@@ -77,9 +77,9 @@ async def db():
 
 @pytest_asyncio.fixture
 async def admin(client):
-    return await register_company(client, "admin@acme.test", "Acme Foods", phone="+254700000001")
+    return await register_company(client, "admin@acme.example.com", "Acme Foods", phone="+254700000001")
 
 
 @pytest_asyncio.fixture
 async def other_admin(client):
-    return await register_company(client, "admin@globex.test", "Globex Mart", phone="+254700000002")
+    return await register_company(client, "admin@globex.example.com", "Globex Mart", phone="+254700000002")

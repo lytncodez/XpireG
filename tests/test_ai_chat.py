@@ -57,7 +57,7 @@ async def test_conversation_is_stored_and_continued(client, admin, db):
 async def test_conversations_are_isolated(client, admin, other_admin, db):
     await stock_store(client, admin, db)
     cid = (await client.post("/ai/chat", json={"message": "Hello"}, headers=admin["headers"])).json()["conversation_id"]
-    for h in (other_admin["headers"], (await create_user(client, admin["headers"], "mgr@acme.test", "MANAGER"))["headers"]):
+    for h in (other_admin["headers"], (await create_user(client, admin["headers"], "mgr@acme.example.com", "MANAGER"))["headers"]):
         assert (await client.get(f"/ai/conversations/{cid}", headers=h)).status_code == 404
         resp = await client.post("/ai/chat", json={"message": "hi", "conversation_id": cid}, headers=h)
         assert resp.status_code == 404

@@ -25,6 +25,8 @@ class ModelChatOutput(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"message": "Which products are expiring soon?"}]})
+
     message: str = Field(min_length=1, max_length=2000)
     conversation_id: uuid.UUID | None = Field(default=None, description="Omit to start a new conversation")
 

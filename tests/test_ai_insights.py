@@ -18,6 +18,7 @@ async def test_generate_insights_with_mock_provider(client, admin, db):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["provider"] == "mock" and body["rejected_count"] == 0
+    assert body["generation_status"] == "SUCCESS"
     categories = {i["category"] for i in body["generated"]}
     assert {"EXPIRY", "WASTE_RISK", "INVENTORY", "STOCK_RISK", "PRODUCT_PERFORMANCE"} <= categories
     for i in body["generated"]:
@@ -44,6 +45,7 @@ async def test_category_filter_and_anomaly_prompt(client, admin, db):
 async def test_insufficient_evidence_creates_nothing(client, admin, db):
     body = (await client.post("/insights/generate", json={}, headers=admin["headers"])).json()
     assert body["generated"] == [] and body["insufficient_evidence"] is True
+    assert body["generation_status"] == "NO_EVIDENCE"
     assert await _count(db) == 0
 
 
@@ -52,6 +54,7 @@ async def test_malformed_ai_output_is_not_stored(client, admin, db):
     use_provider(ScriptedProvider(lambda ctx, task: "Here are your insights: totally not json"))
     body = (await client.post("/insights/generate", json={}, headers=admin["headers"])).json()
     assert body["generated"] == [] and body["rejected_count"] == 1
+    assert body["generation_status"] == "REJECTED"
     assert "JSON" in body["rejected"][0]["reasons"][0]
     assert await _count(db) == 0
 
@@ -65,6 +68,7 @@ async def test_invented_numbers_rejected_per_item(client, admin, db):
     use_provider(tamper(invent))
     body = (await client.post("/insights/generate", json={}, headers=admin["headers"])).json()
     assert body["rejected_count"] == 1
+    assert body["generation_status"] == "PARTIAL"
     assert any("987654" in r for r in body["rejected"][0]["reasons"])
     assert body["generated"]  # the other, grounded insights are kept
     assert all("987654" not in i["summary"] for i in body["generated"])
@@ -124,7 +128,7 @@ async def test_insight_access_control_and_isolation(client, admin, other_admin, 
     insight_id = generated[0]["id"]
     assert (await client.get(f"/insights/{insight_id}", headers=other_admin["headers"])).status_code == 404
     assert (await client.get("/insights", headers=other_admin["headers"])).json()["total"] == 0
-    staff = await create_user(client, admin["headers"], "staff@acme.test", "STAFF")
+    staff = await create_user(client, admin["headers"], "staff@acme.example.com", "STAFF")
     assert (await client.get("/insights", headers=staff["headers"])).json()["total"] == len(generated)
     assert (await client.post("/insights/generate", json={}, headers=staff["headers"])).status_code == 403
 

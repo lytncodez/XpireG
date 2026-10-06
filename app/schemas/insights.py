@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -114,6 +114,9 @@ class RejectedOutput(BaseModel):
 
 
 class InsightGenerateResponse(BaseModel):
+    generation_status: Literal["SUCCESS", "PARTIAL", "REJECTED", "NO_EVIDENCE"] = Field(
+        description="Generation outcome; HTTP 200 alone does not mean insights were saved"
+    )
     provider: str
     model: str
     analysis_period: dict[str, Any]

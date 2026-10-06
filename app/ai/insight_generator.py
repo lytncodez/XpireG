@@ -115,7 +115,9 @@ async def generate_insights(
     await db.commit()
     for insight in stored:
         await db.refresh(insight)
+    generation_status = ("PARTIAL" if rejected else "SUCCESS") if stored else ("REJECTED" if rejected else "NO_EVIDENCE")
     return InsightGenerateResponse(
+        generation_status=generation_status,
         provider=response.provider,
         model=response.model,
         analysis_period=ctx["analysis_period"],
