@@ -1,0 +1,25 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated sample imports
+scripts/sample_import.csv
+scripts/sample_import.xlsx
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
